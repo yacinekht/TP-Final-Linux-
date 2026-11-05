@@ -724,3 +724,608 @@ ls -ld /var/log/journal/$(cat /etc/machine-id)
 journalctl --disk-usage
 journalctl --verify | tail -5
 systemctl reboot
+#1793812191
+systemctl enable --now auditd
+#1793812215
+cat > /etc/audit/rules.d/90-helios.rules <<'EOF'
+## Fichiers d'identite
+-w /etc/passwd -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+## Delegation et acces distant
+-w /etc/sudoers -p wa -k sudoers
+-w /etc/sudoers.d/ -p wa -k sudoers
+-w /etc/ssh/sshd_config -p wa -k sshd-config
+-w /etc/ssh/sshd_config.d/ -p wa -k sshd-config
+## Binaire setgid cree au TP2
+-w /usr/local/bin/helios-lastlog -p x -k helios-setgid
+## Toute commande root lancee par un compte humain
+-a always,exit -F arch=b64 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k privesc
+-a always,exit -F arch=b32 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k privesc
+## Pare-feu
+-w /etc/firewalld/ -p wa -k firewall
+EOF
+
+#1793812235
+augenrules --load ; auditctl -l ; auditctl -s | head -5
+#1793812437
+touch /etc/sudoers.d/test-audit && rm -f /etc/sudoers.d/test-audit
+#1793812453
+su - julien -c '/usr/local/bin/helios-lastlog >/dev/null'
+#1793812466
+su - julien -c 'sudo systemctl status helios-collect.service >/dev/null'
+#1793812479
+ausearch -k sudoers -i | tail -20
+#1793812486
+ausearch -k helios-setgid -i | tail -10
+#1793812494
+ausearch -k privesc -i --start today | tail -20
+#1793812500
+ausearch -m USER_LOGIN,USER_AUTH --start today -i | tail -20
+#1793812507
+aureport --auth --summary -i ; aureport --failed --summary -i ; aureport -k --summary -i
+#1793812668
+journalctl -u sshd --since '-5min' -g 'Invalid user' --no-pager | tail
+#1793812699
+systemctl start helios-watch-auth.service
+#1793812734
+ls -l /etc/systemd/system/helios-watch-auth.*
+#1793812753
+cat >/etc/systemd/system/helios-watch-auth.service <<'EOF'
+[Unit]
+Description=Helios SSH attack detection
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/helios-watchauth.sh
+EOF
+
+#1793812759
+cat >/etc/systemd/system/helios-watch-auth.timer <<'EOF'
+[Unit]
+Description=Run helios-watch-auth every 2 minutes
+
+[Timer]
+OnCalendar=*:0/2
+Persistent=no
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
+EOF
+
+#1793812765
+systemctl daemon-reload
+#1793812775
+systemctl cat helios-watch-auth.service
+#1793812789
+journalctl -u sshd --since '-5min' -g 'Invalid user' --no-pager | tail
+#1793812795
+systemctl start helios-watch-auth.service
+#1793812848
+systemctl status helios-watch-auth.service -l
+#1793812870
+journalctl -xeu helios-watch-auth.service --no-pager
+#1793812934
+ls -l /usr/local/sbin
+#1793812958
+find / -name 'helios-watchauth.sh' 2>/dev/null
+#1793812973
+cat >/usr/local/sbin/helios-watchauth.sh <<'EOF'
+#!/bin/bash
+set -euo pipefail
+
+LOCK=/run/helios-watchauth.lock
+
+exec 9>"$LOCK"
+
+if ! flock -n 9 ; then
+    exit 2
+fi
+
+logger -t helios-watch-auth "Execution du controle SSH"
+
+exit 0
+EOF
+
+#1793812980
+chmod 750 /usr/local/sbin/helios-watchauth.sh
+#1793812985
+ls -l /usr/local/sbin/helios-watchauth.sh
+#1793812993
+systemctl start helios-watch-auth.service
+#1793813000
+journalctl -t helios-watch-auth -n 10 --no-pager
+#1793813008
+firewall-cmd --ipset=helios-blacklist --get-entries
+#1793813014
+systemctl stop helios-watch-auth.timer
+#1793813020
+firewall-cmd --ipset=helios-blacklist --remove-entry=192.168.56.11
+#1793813028
+sed -i '/192.168.56.11/d' /var/lib/helios/blocked.txt
+#1793813038
+systemd-run --on-active=11min --timer-property=RemainAfterElapse=no systemctl start helios-watch-auth.timer
+#1793813142
+git init
+#1793813164
+git add .
+#1793813257
+cd /root
+#1793813263
+git init
+#1793813265
+git add .
+#1793813287
+git commit -m "Tp3 linux"
+#1793813317
+git remote add origin https://github.com/yacinekht/TP3-linux.git
+#1793813324
+git push -u origin main
+#1793813517
+git push -u origin master
+#1793813621
+ssh-keygen -lf ~/.ssh/id_ed25519.pub
+#1793813724
+git remote -v
+#1793813737
+git remote set-url origin git@github.com:yacinekht/TP3-linux.git
+#1793813742
+ssh -T git@github.com
+#1793813750
+git push -u origin master
+#1793813783
+git rm --cached .ssh/id_ed25519
+#1793813788
+git rm --cached .ssh/id_ed25519.pub
+#1793813797
+echo ".ssh/" >> .gitignore
+#1793813804
+git add .gitignore
+#1793813814
+git commit -m "Remove SSH keys"
+#1793813832
+git push -u origin master
+#1793813848
+rm -rf .git
+#1793813855
+git init
+#1793813860
+git branch -m main
+#1793813867
+echo ".ssh/" > .gitignore
+#1793813872
+git add .
+#1793813877
+git commit -m "TP3 Linux"
+#1793813883
+git remote add origin 
+#1793813890
+git remote add origin git@github.com:yacinekht/TP3-linux.git
+#1793813895
+git push -u origin main
+#1793814941
+systemctl is-active helios-collect.service
+#1793814973
+systemctl cat helios.target
+#1793814995
+firewall-cmd --get-default-zone · --get-activezones
+#1793815019
+firewall-cmd --get-default-zone --get-activezones
+#1793815026
+firewall-cmd --get-default-zone 
+#1793815049
+firewall-cmd --get-active-zones 
+#1793815078
+sshd -T | grep -E
+#1793815092
+sshd -T
+#1793815127
+sshd -T | grep -E '^(port|allowgroups|passwordauthentication) '
+#1793815144
+systemctl is-active helios-watch-auth.timer
+#1793816123
+grep -q '^excludepkgs=zabbix' /etc/yum.repos.d/epel.repo || sed -i '/^\[epel\]/a
+excludepkgs=zabbix*' /etc/yum.repos.d/epel.repo
+#1793816200
+grep -q '^excludepkgs=zabbix' /etc/yum.repos.d/epel.repo || sed -i '/^\[epel\]/a excludepkgs=zabbix*' /etc/yum.repos.d/epel.repo
+#1793816266
+rpm -Uvh https://repo.zabbix.com/zabbix/7.0/rocky/9/x86_64/zabbix-release-latest7
+#1793816309
+rpm -Uvh https://repo.zabbix.com/zabbix/7.0/rocky/9/x86_64/zabbix-release-latest7.0.el9.noarch.rpm
+#1793816309
+dnf clean all
+#1793816340
+rpm -Uvh https://repo.zabbix.com/zabbix/7.0/rocky/9/x86_64/zabbix-release-latest-7.0.el9.noarch.rpm
+#1793816351
+dnf clean all
+#1793816450
+dnf -y install zabbix-agent2 zabbix-get sysstat
+#1793816566
+systemctl enable --now zabbix-agent2 sysstat.service sysstat-collect.timer sysstat-summary.timer
+#1793816590
+getent passwd zabbix
+#1793816609
+grep -E '^(Server|ServerActive)=' /etc/zabbix/zabbix_agent2.conf
+#1793816709
+systemctl is-active zabbix-agent2 ; systemctl is-enabled zabbix-agent2
+#1793816739
+systemctl is-active sysstat-collect.timer ; systemctl is-enabled sysstat-collect.timer
+#1793816749
+zabbix_get -s 127.0.0.1 -k agent.ping
+#1793816942
+cat >/etc/zabbix/zabbix_agent2.d/helios-suivi.conf <<'CONF'
+UserParameter=helios.suivi.http,curl http://127.0.0.1:8080/etat.json -s -o /dev/null -w "%{http_code}" --max-time 6
+UserParameter=helios.suivi.age,echo $(( $(date +%s) - $(stat -c %Y /srv/helios/suivi/www/etat.json) ))
+CONF
+
+#1793818091
+cat /etc/zabbix/zabbix_agent2.d/helios-suivi.conf
+#1793818234
+cat > /etc/zabbix/zabbix_agent2.d/helios-suivi.conf << 'CONF'
+UserParameter=helios.suivi.http,/usr/bin/curl http://127.0.0.1:8080/etat.json -s -o /dev/null -w "%{http_code}" --max-time 6
+UserParameter=helios.suivi.age,echo $(( $(/usr/bin/date +%s) - $(/usr/bin/stat -c %Y /srv/helios/suivi/www/etat.json) ))
+CONF
+
+#1793818338
+systemctl restart zabbix-agent2
+#1793818406
+cat >/etc/zabbix/zabbix_agent2.d/helios-suivi.conf <<'CONF'
+UserParameter=helios.suivi.http,/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 6 http://127.0.0.1:8080/etat.json
+UserParameter=helios.suivi.age,echo $(( $(/usr/bin/date +%s) - $(/usr/bin/stat -c %Y /srv/helios/suivi/www/etat.json) ))
+CONF
+
+#1793818417
+systemctl restart zabbix-agent2
+#1793818452
+nano /etc/zabbix/zabbix_agent2.d/helios-suivi.conf
+#1793818466
+cat /etc/zabbix/zabbix_agent2.d/helios-suivi.conf
+#1793818528
+cat > /etc/zabbix/zabbix_agent2.d/helios-suivi.conf << 'CONF'
+UserParameter=helios.suivi.http,/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 6 http://127.0.0.1:8080/etat.json
+UserParameter=helios.suivi.age,echo $(( $(/usr/bin/date +%s) - $(/usr/bin/stat -c %Y /srv/helios/suivi/www/etat.json) ))
+CONF
+
+#1793818551
+systemctl restart zabbix-agent2
+#1793818590
+zabbix_agent2 -c /etc/zabbix/zabbix_agent2.conf -t helios.suivi.http
+#1793818659
+journalctl -xeu zabbix-agent2 --no-pager | tail -15
+#1793818711
+cat > /etc/zabbix/zabbix_agent2.d/helios-suivi.conf << 'CONF'
+UserParameter=helios.suivi.http,/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 6 http://127.0.0.1:8080/etat.json
+UserParameter=helios.suivi.age,echo $(( $(/usr/bin/date +%s) - $(/usr/bin/stat -c %Y /srv/helios/suivi/www/etat.json) ))
+CONF
+
+#1793818721
+systemctl restart zabbix-agent2
+#1793819077
+cat > /etc/zabbix/zabbix_agent2.d/helios-suivi.conf<<'CONF'
+#1793819150
+systemctl status zabbix-agent2.service -l
+#1793819171
+journalctl -xeu zabbix-agent2.service
+#1793819255
+cat > /etc/zabbix/zabbix_agent2.d/helios-suivi.conf<<'CONF'
+UserParameter=helios.suivi.http,/usr/bin/curl -s -o /dev/null -w "%{http_code}" --max-time 6 http://127.0.0.1:8080/etat.json
+UserParameter=helios.suivi.age,echo $(( $(/usr/bin/date +%s) - $(/usr/bin/stat -c %Y /srv/helios/suivi/www/etat.json) ))
+CONF
+
+#1793819393
+journalctl -u zabbix-agent2 --no-pager | grep -i error | tail -5
+#1793819425
+/usr/sbin/zabbix_agent2 -T -c /etc/zabbix/zabbix_agent2.conf
+#1793819431
+journalctl -u zabbix-agent2 --no-pager | grep -i error | tail -5
+#1793819441
+systemctl restart zabbix-agent2
+#1793819599
+systemctl status zabbix-agent2.service -l --no-pager
+#1793819608
+journalctl -xeu zabbix-agent2.service --no-pager | tail -30
+#1793819633
+ls -l /etc/zabbix/zabbix_agent2.d/helios-suivi.conf
+#1793819638
+ls -ld /etc/zabbix/zabbix_agent2.d
+#1793819661
+chmod 644 /etc/zabbix/zabbix_agent2.d/helios-suivi.conf
+#1793819667
+ls -l /etc/zabbix/zabbix_agent2.d/helios-suivi.conf
+#1793819673
+systemctl restart zabbix-agent2
+#1793819772
+zabbix_get -s 127.0.0.1 -k exemple.nb_comptes
+#1793819790
+zabbix_get -s 127.0.0.1 -k exemple.age_passwd
+#1793819849
+zabbix_get -s 127.0.0.1 -k helios.suivi.http
+#1793819870
+zabbix_get -s 127.0.0.1 -k helios.suivi.age
+#1793819898
+zabbix_get -s 127.0.0.1 -k helios.suivi.age 
+#1793819926
+curl http://127.0.0.1:8080/etat.json
+#1793819966
+ss -lntp | grep 8080
+#1793819978
+ls -ld /srv/helios/suivi/www
+#1793819983
+ls -l /srv/helios/suivi/www
+#1793820593
+lea id
+#1793820638
+getent group suivi
+#1793820645
+getend user lea
+#1793820652
+getent user lea
+#1793820665
+getent passwd lea
+#1793820910
+cp -a /etc/login.defs /root/login.defs.orig
+#1793821080
+sed -i -e 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 90/' -e 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS
+1/' \ -e 's/^PASS_WARN_AGE.*/PASS_WARN_AGE 14/' -e 's/^UMASK.*/UMASK 027/' -e 's/^INACTIVE=.*/INACTIVE=7/' /etc/default/useradd
+#1793821214
+sed -i -e 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 90/' -e 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' -e 's/^PASS_WARN_AGE.*/PASS_WARN_AGE 14/' -e 's/^UMASK.*/UMASK 027/' /etc/login.defs
+#1793821223
+sed -i 's/^INACTIVE=.*/INACTIVE=7/' /etc/default/useradd
+#1793821356
+getent group suivi
+#1793821364
+getent passwd lea
+#1793821446
+groupadd -g 5003 suivi
+#1793821578
+useradd -u 5104 -g suivi -c "Lea Fabre - responsable suivi des tournees" -m lea
+#1793821608
+getend passwd 5104
+#1793821612
+getent passwd 5104
+#1793821628
+getent passwd lea
+#1793821849
+useradd -u 5105 -g suivi -c "Lea Fabre - responsable suivi des tournees" -m lea
+#1793821865
+passwd lea
+#1793822101
+getent lea
+#1793822111
+getend group suivi
+#1793822118
+getent group suivi
+#1793822163
+getent -l suivi
+#1793822321
+id lea
+#1793822615
+getent passwd helios
+#1793822932
+useradd --system --shell /sbin/nologin --home-dir /srv/helios/suivi helios-suivi
+#1793822954
+getent passwd helios-suivi
+#1793823121
+chage -l lea
+#1793823816
+install -d -m 2770 -o root -g suivi /srv/helios/suivi/www
+#1793823866
+ls -ld /srv/helios/suivi/www
+#1793823972
+su -s /bin/bash helios-suivi -c 'ls -ld /srv/helios/suivi/www'
+#1793824010
+su -s /bin/bash helios-suivi -c 'touch /srv/helios/suivi/www/etat.json'
+#1793824088
+getent passwd helios-suivi
+#1793824341
+id helios-suivi
+#1793824384
+usermod -aG suivi helios-suivi
+#1793824401
+getent passwd helios-suivi
+#1793824418
+id helios-suivi
+#1793824432
+su -s /bin/bash helios-suivi -c 'touch /srv/helios/suivi/www/etat.json'
+#1793824787
+getfact /srv/helios/suivi/www
+#1793824796
+getfacl /srv/helios/suivi/www
+#1793825034
+setfacl -m u:zabbix:x /srv/helios/suivi/www
+#1793825038
+getfacl /srv/helios/suivi/www
+#1793825234
+su -s /bin/bash zabbix -c 'stat /srv/helios/suivi/www/etat.json'
+#1793825253
+su -s /bin/bash zabbix -c 'ls /srv/helios/suivi/www'
+#1793827157
+setfacl -d -m g:suivi:rwx /srv/helios/suivi/www
+#1793827198
+setfacl -d -m u:helios-suivi:r /srv/helios/suivi/www
+#1793827236
+setfacl -d -m o::--- /srv/helios/suivi/www
+#1793827401
+getfacl /srv/helios/suivi/www
+#1793827559
+su - lea -c 'echo "Question E2.5 terminee" > /srv/helios/suivi/www/index.html'
+#1793827574
+cat /srv/helios/suivi/www/index.html
+#1793828225
+cat > /usr/local/sbin/helios-archive.sh <<'EOF'
+#!/usr/bin/bash
+# helios-archive.sh — archive la telemetrie du jour, purge au-dela de 14 jours.
+# Sortie : 0 OK · 1 erreur interne · 2 verrou deja pris · 3 prerequis manquant
+set -euo pipefail
+IFS=$'\n\t'
+readonly SRC=/var/lib/helios/telemetry.csv
+readonly DEST=/var/lib/helios/archives
+readonly RETENTION_DAYS=14
+readonly LOCK=/run/lock/helios-archive.lock
+readonly TAG=helios-suivi-publish
+log() { logger -t "$TAG" -p "daemon.${1}" -- "$2" ; }
+die() { log err "$1" ; exit "${2:-1}" ; }
+cleanup() { local rc=$? ; [[ -n "${TMPD:-}" ]] && rm -rf -- "$TMPD"
+ log info "fin d execution rc=${rc}" ; return 0 ; }
+trap cleanup EXIT
+trap 'die "interrompu par signal" 1' INT TERM
+exec 9>"$LOCK" # verrou exclusif non bloquant
+flock -n 9 || { log warning "une autre instance tourne deja" ; exit 2 ; }
+command -v gzip >/dev/null || die "gzip absent" 3
+[[ -r "$SRC" ]] || die "source illisible : $SRC" 3
+log info "demarrage"
+install -d -m 0750 -o helios -g helios "$DEST"
+TMPD="$(mktemp -d /tmp/helios-archive.XXXXXX)"
+stamp="$(date +%Y%m%d-%H%M%S)"
+cp -- "$SRC" "${TMPD}/telemetry-${stamp}.csv"
+: > "$SRC"
+gzip -9 -- "${TMPD}/telemetry-${stamp}.csv"
+install -m 0640 -o helios -g helios \
+ "${TMPD}/telemetry-${stamp}.csv.gz" "${DEST}/telemetry-${stamp}.csv.gz"
+log info "archive ${DEST}/telemetry-${stamp}.csv.gz ($(zcat
+"${DEST}/telemetry-${stamp}.csv.gz" | wc -l) lignes)"
+purged=$(find "$DEST" -type f -name 'telemetry-*.csv.gz' -mtime "+${RETENTION_DAYS}" -
+printf . -delete | wc -c)
+log info "purge : ${purged} archive(s) suppri
+#1793828420
+cat > /usr/local/sbin/helios-archive.sh <<'EOF'
+#!/usr/bin/bash
+# helios-archive.sh — archive la telemetrie du jour, purge au-dela de 14 jours.
+# Sortie : 0 OK · 1 erreur interne · 2 verrou deja pris · 3 prerequis manquant
+set -euo pipefail
+IFS=$'\n\t'
+readonly SRC=/var/lib/helios/telemetry.csv
+readonly DEST=/var/lib/helios/archives
+readonly RETENTION_DAYS=14
+readonly LOCK=/run/lock/helios-archive.lock
+readonly TAG=helios-archive
+log() { logger -t "$TAG" -p "daemon.${1}" -- "$2" ; }
+die() { log err "$1" ; exit "${2:-1}" ; }
+cleanup() { local rc=$? ; [[ -n "${TMPD:-}" ]] && rm -rf -- "$TMPD"
+ log info "fin d execution rc=${rc}" ; return 0 ; }
+trap cleanup EXIT
+trap 'die "interrompu par signal" 1' INT TERM
+exec 9>"$LOCK" # verrou exclusif non bloquant
+flock -n 9 || { log warning "une autre instance tourne deja" ; exit 2 ; }
+command -v gzip >/dev/null || die "gzip absent" 3
+[[ -r "$SRC" ]] || die "source illisible : $SRC" 3
+log info "demarrage"
+install -d -m 0750 -o helios -g helios "$DEST"
+TMPD="$(mktemp -d /tmp/helios-archive.XXXXXX)"
+stamp="$(date +%Y%m%d-%H%M%S)"
+cp -- "$SRC" "${TMPD}/telemetry-${stamp}.csv"
+: > "$SRC"
+gzip -9 -- "${TMPD}/telemetry-${stamp}.csv"
+install -m 0640 -o helios -g helios \
+ "${TMPD}/telemetry-${stamp}.csv.gz" "${DEST}/telemetry-${stamp}.csv.gz"
+log info "archive ${DEST}/telemetry-${stamp}.csv.gz ($(zcat
+"${DEST}/telemetry-${stamp}.csv.gz" | wc -l) lignes)"
+purged=$(find "$DEST" -type f -name 'telemetry-*.csv.gz' -mtime "+${RETENTION_DAYS}" -
+printf . -delete | wc -c)
+log info "purge : ${purged} archive(s) supprimee(s)"
+exit 0
+EOF
+
+#1793828507
+touch /usr/local/sbin/helios-suivi-publish.sh
+#1793828571
+chmod 750 /usr/local/sbin/helios-suivi-publish.sh
+#1793828582
+cat > /usr/local/sbin/helios-suivi-publish.sh <<'EOF'
+#!/usr/bin/bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+readonly LOCK=/run/lock/helios-suivi-publish.lock
+readonly TAG=helios-suivi-publish
+
+log() {
+    logger -t "$TAG" -p "daemon.${1}" -- "$2"
+}
+
+die() {
+    log err "$1"
+    exit "${2:-1}"
+}
+
+cleanup() {
+    local rc=$?
+    log info "fin execution rc=${rc}"
+}
+
+trap cleanup EXIT
+trap 'die "interrompu par signal" 1' INT TERM
+
+exec 9>"$LOCK"
+
+flock -n 9 || {
+    log warning "une autre instance tourne deja"
+    exit 2
+}
+
+log info "demarrage"
+
+exit 0
+EOF
+
+#1793829307
+cat > /usr/local/sbin/helios-suivi-publish.sh << 'EOF'
+#!/usr/bin/bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+readonly SRC=/var/lib/helios/telemetry.csv
+readonly WWW=/srv/helios/suivi/www
+readonly JSON="${WWW}/etat.json"
+readonly LOCK=/run/lock/helios-suivi-publish.lock
+readonly TAG=helios-suivi-publish
+
+log() {
+    logger -t "$TAG" -p "daemon.${1}" -- "$2"
+}
+
+die() {
+    log err "$1"
+    exit "${2:-1}"
+}
+
+cleanup() {
+    local rc=$?
+    [[ -n "${TMPFILE:-}" && -f "${TMPFILE}" ]] && rm -f -- "$TMPFILE"
+    log info "fin execution rc=${rc}"
+}
+
+trap cleanup EXIT
+trap 'die "interrompu par signal" 1' INT TERM
+
+exec 9>"$LOCK"
+
+flock -n 9 || {
+    log warning "une autre instance tourne deja"
+    exit 2
+}
+
+[[ -r "$SRC" ]] || die "telemetrie illisible : $SRC" 3
+[[ -d "$WWW" ]] || die "repertoire absent : $WWW" 3
+[[ -w "$WWW" ]] || die "www non inscriptible : $WWW" 3
+
+log info "demarrage"
+
+TMPFILE="$(mktemp "${WWW}/.etat.json.XXXXXX")"
+
+cat > "$TMPFILE" <<EOF
+{
+  "genere": "$(date --iso-8601=seconds)"
+}
+EOF
+
+#1793829310
+mv -f "$TMPFILE" "$JSON"
+#1793829310
+log info "etat.json publie"
+#1793829310
+exit 0
